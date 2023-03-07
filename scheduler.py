@@ -7,7 +7,7 @@ from apscheduler.executors.pool import ThreadPoolExecutor
 from apscheduler.schedulers.blocking import BlockingScheduler
 from retrying import retry
 
-from rapidsnail.slug.constants import (
+from scantest.slug.constants import (
     ScanConfigEnum,
     AwsConfigEnum,
     YAML_FILES_PATH,
@@ -18,7 +18,7 @@ from rapidsnail.slug.constants import (
     NetscanTypesEnum,
     AdhocScanVars,
 )
-from rapidsnail.slug.helpers import (
+from scantest.slug.helpers import (
     get_scheduled_agent_scan_group_name,
     get_scheduled_scan_name,
     get_netscan_scan_name,
@@ -40,15 +40,15 @@ from rapidsnail.slug.helpers import (
     get_targeted_netscan_scan_name,
     parse_cidr_block_from_bom,
 )
-from rapidsnail.slug.s3_client import S3Client
-from rapidsnail.slug.sc_client import ScClient
-from rapidsnail.slug.sc_poller import SCPoller
-from rapidsnail.slug.slug import Slug
-from rapidsnail.utils.adhoc_scan_poller import AdhocScanPoller
-from rapidsnail.utils.logger import rs_log
-from rapidsnail.utils.property_namespace import PropertyNamespace
-from rapidsnail.utils.thread_config import manager_locks
-from rapidsnail.slug.monitor import ServiceMonitor, Metric
+from scantest.slug.s3_client import S3Client
+from scantest.slug.sc_client import ScClient
+from scantest.slug.sc_poller import SCPoller
+from scantest.slug.slug import Slug
+from scantest.utils.adhoc_scan_poller import AdhocScanPoller
+from scantest.utils.logger import rs_log
+from scantest.utils.property_namespace import PropertyNamespace
+from scantest.utils.thread_config import manager_locks
+from scantest.slug.monitor import ServiceMonitor, Metric
 
 LOGGER = rs_log(__name__)
 current_sc_import_required = False
@@ -175,7 +175,7 @@ def site_control(
 
 def slug_control(site):
     """
-    This function is the main entry point for Rapidsnail in orchestrating scans.
+    This function is the main entry point for scantest in orchestrating scans.
     Slug control looks at the @{SCAN_TRACKING_FILE} file and based on that file decides for each Nessus Manager
     (site) linked to the security center (env):
         * If there is an entry for a site in the scan tracking file:
@@ -954,10 +954,10 @@ def initialize():
                 sc_client.get_agent_managers_site_configs()
             )
 
-        _update_rapidsnail_jobs(scheduler)
+        _update_scantest_jobs(scheduler)
         yaml_locations = property_namespace.yaml_locations
         if not property_namespace.is_falcon and yaml_locations:
-            LOGGER.info(f"Adding update rapidsnail jobs interval job..")
+            LOGGER.info(f"Adding update scantest jobs interval job..")
             scheduler.add_job(
                 update_jobs,
                 "interval",
@@ -999,19 +999,19 @@ def update_jobs(scheduler):
         property_namespace = PropertyNamespace.get_instance()
         argus_client = property_namespace.get_argus_client()
         _update_site_configs()
-        _update_rapidsnail_jobs(scheduler)
+        _update_scantest_jobs(scheduler)
         _remove_old_site_jobs(scheduler)
         argus_client.add_metric((MetricsEnum.UPDATE_JOBS_SUCCESS, 1))
         argus_client.push_metrics()
     except Exception as e:
         LOGGER.error(
-            f"Encountered exception {e} while trying to update rapidsnail jobs."
+            f"Encountered exception {e} while trying to update scantest jobs."
         )
         argus_client.add_metric((MetricsEnum.UPDATE_JOBS_SUCCESS, 0))
         argus_client.push_metrics()
 
 
-def _update_rapidsnail_jobs(scheduler):
+def _update_scantest_jobs(scheduler):
     property_namespace = PropertyNamespace.get_instance()
     counter = 1
     first_runtime_delta = 5
@@ -1023,7 +1023,7 @@ def _update_rapidsnail_jobs(scheduler):
         if minute_val > 55:
             hour_val += 1
             minute_val = 1
-        _update_rapidsnail_agent_scan(
+        _update_scantest_agent_scan(
             scheduler=scheduler, site=site, first_runtime_delta=first_runtime_delta
         )
         _update_netscan_jobs(
@@ -1064,7 +1064,7 @@ def _update_rapidsnail_jobs(scheduler):
         current_sc_import_required = False
 
 
-def _update_rapidsnail_agent_scan(scheduler, site, first_runtime_delta):
+def _update_scantest_agent_scan(scheduler, site, first_runtime_delta):
     property_namespace = PropertyNamespace.get_instance()
     scan_job_id = f"{site}_scan"
     site_cfg = property_namespace.site_to_site_cfg_map.get(site)
